@@ -4,10 +4,15 @@ require('rhino').install();
 const { showToast } = require('toast');
 const { select } = require('accessibility');
 const usbserial = require('./usbserial');
+const SwitchCommand = require('./SwitchCommand');
 async function Main() {
     // connect to serial and auto confirm
     let confirm = select({ text: "确定", className: "android.widget.Button" }).atLeast(1).maxRetries(10).timeout(10000).first().then((res) => {
-        res.click();
+        try {
+            res.click();
+        } catch (e) {
+            return e;
+        }
     }).catch((e) => { console.log(e); });
     serial = await usbserial.ConnectTo(baudRate = 115200);
     await confirm;
@@ -20,9 +25,12 @@ async function Main() {
         let buffer = Buffer(intList);
         console.log("received: " + buffer.toString('hex'));
     });
+    // button A
     // write byte
+    usbserial.SerialWriteListAsync(serial, [0xA5, 0xA5, 0x81]);
+    await new Promise(r => setTimeout(r, 50));
+    //usbserial.SerialWriteListAsync(serial, SwitchCommand.CodeFromKey(SwitchCommand.SwitchButton.A));
     for (let i = 0; i < 10; i++) {
-        usbserial.SerialWriteListAsync(serial, [0xA5, 0xA5, 0x81]);
         await new Promise(r => setTimeout(r, 100));
     }
     serial.close();

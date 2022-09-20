@@ -1,6 +1,5 @@
 "nodejs";
 
-
 const $java = $autojs.java;
 require('rhino').install();
 const { showToast } = require('toast');
