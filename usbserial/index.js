@@ -90,7 +90,7 @@ async function GetSerialDevices(dexpath = "./usbserial/usbserial.dex") {
     return ret;
 }
 // ConnectTo .
-async function ConnectTo(baudRate = 115200, dataBits = DATA_BITS_8, parity = PARITY_ODD, flowctrl = FLOW_CONTROL_OFF, devpath = null, dexpath = "./usbserial/usbserial.dex") {
+async function ConnectTo(baudRate = 115200, dataBits = DATA_BITS_8, parity = PARITY_NONE, flowctrl = FLOW_CONTROL_OFF, devpath = null, dexpath = "./usbserial/usbserial.dex") {
     // load dex
     if (!UsbSerialDevice || !UsbSerialInterface) {
         await $java.loadDex(dexpath);

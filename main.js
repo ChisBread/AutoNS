@@ -27,12 +27,18 @@ async function Main() {
     });
     // button A
     // write byte
-    usbserial.SerialWriteListAsync(serial, [0xA5, 0xA5, 0x81]);
+    usbserial.SerialWriteListAsync(serial, [SwitchCommand.Command.Ready, SwitchCommand.Command.Ready, SwitchCommand.Command.Hello]);
+    usbserial.SerialWriteListAsync(serial, [SwitchCommand.Command.Ready, SwitchCommand.Command.Ready, SwitchCommand.Command.Version]);
+
+
+    cmdcode = [SwitchCommand.Command.Ready].concat(SwitchCommand.CodeFromKey(SwitchCommand.SwitchButton.B));
+    console.log("command: " + Buffer(cmdcode).toString('hex'));
     await new Promise(r => setTimeout(r, 50));
-    //usbserial.SerialWriteListAsync(serial, SwitchCommand.CodeFromKey(SwitchCommand.SwitchButton.A));
-    for (let i = 0; i < 10; i++) {
-        await new Promise(r => setTimeout(r, 100));
-    }
+    usbserial.SerialWriteListAsync(serial, cmdcode);
+
+    await new Promise(r => setTimeout(r, 50));
+
+    await new Promise(r => setTimeout(r, 5000));
     serial.close();
 }
 console.log(process.versions);

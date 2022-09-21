@@ -67,11 +67,11 @@ const Reply = {
     FlashEnd: 0x82,
     ScriptAck: 0x83,
 }
-function CodeFromKey(button, hat = 0x08, lx = 0x0, ly = 0x0, rx = 0x0, ry = 0x0) {
-    serialized = [button[1], button[0], hat, lx, ly, rx, ry];
+function CodeFromKey(button = 0, hat = SwitchHAT.CENTER, lx = SwitchStick.STICK_CENTER, ly = SwitchStick.STICK_CENTER, rx = SwitchStick.STICK_CENTER, ry = SwitchStick.STICK_CENTER) {
+    serialized = [button[0], button[1], hat, lx, ly, rx, ry];
     return CodeFromSerialized(serialized);
 }
-function reserveByte(c) {
+function ReserveByte(c) {
     let newc = 0x00;
     for (i = 0; i < 7; i++) {
         newc |= (c & 1);
@@ -81,6 +81,7 @@ function reserveByte(c) {
     return newc;
 }
 function CodeFromSerialized(serialized) {
+    console.log("serialized: " + Buffer(serialized).toString('hex'));
     let n = 0;
     let bits = 0;
     let packet = [];
@@ -106,4 +107,5 @@ module.exports = {
     Reply: Reply,
     CodeFromKey: CodeFromKey,
     CodeFromSerialized: CodeFromSerialized,
+    ReserveByte: ReserveByte,
 }
