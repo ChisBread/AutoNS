@@ -6,6 +6,12 @@ const { select } = require('accessibility');
 const usbserial = require('./usbserial');
 const EasyCon = require('./EasyCon');
 let serial = null;
+async function AmiiboTest() {
+    let ret = await EasyCon.SaveAmiiboFromBin(0, "./amiibo/Breath of the Wild/[ZBW] 04 - Link (Rider).bin")
+    console.log(ret);
+    ret = await EasyCon.ChangeAmiiboIndex(0);
+    console.log(ret);
+}
 async function Init() {
     // connect to serial and auto confirm
     let confirm = select({ text: "确定", className: "android.widget.Button" }).atLeast(1).maxRetries(10).timeout(10000).first().then((res) => {
@@ -23,8 +29,8 @@ async function Init() {
     }
     EasyCon.SetEasyConSerial(serial);
 
-    let ret = await EasyCon.HelloCheck();
-    console.log("HelloCheck: " + ret);
+    let ret = await EasyCon.Hello();
+    console.log("Hello: " + ret);
     if (!ret) {
         return false;
     }
@@ -33,9 +39,10 @@ async function Init() {
     return true;
 }
 async function Main() {
-    if (Init()) {
+    if (await Init()) {
         showToast('Welcome to AutoNS!');
     }
+    await AmiiboTest();
     await new Promise(r => setTimeout(r, 1000));
     serial.close();
     showToast('Byebye!');

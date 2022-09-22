@@ -1,6 +1,13 @@
 "nodejs";
 const usbserial = require('../usbserial');
+const fs = require('fs');
+let debug = true;
 let serial = null;
+function easylog(str) {
+    if (debug) {
+        console.log(str);
+    }
+}
 const SwitchStick = {
     STICK_MIN: 0,
     STICK_CENMIN: 64,
@@ -112,9 +119,9 @@ function CodeFromSerialized(serialized) {
 }
 
 
-const BytesReceiveQueue = [];
-function PushBytesReceive(bs, foo, desc) {
-    BytesReceiveQueue.push(
+const BytesReceiverQueue = [];
+function PushBytesReceiver(bs, foo, desc) {
+    BytesReceiverQueue.push(
         {
             byte_size: bs,
             commit: foo,
@@ -122,9 +129,9 @@ function PushBytesReceive(bs, foo, desc) {
         }
     );
 }
-async function HelloCheck() {
+async function Hello() {
     let hello_checked = false;
-    PushBytesReceive(1, (bytes) => {
+    PushBytesReceiver(1, (bytes) => {
         if (Reply.Hello == bytes[0]) {
             hello_checked = true;
             return true;
@@ -142,7 +149,7 @@ async function HelloCheck() {
 }
 async function Version() {
     let version = -10000;
-    PushBytesReceive(1, (bytes) => {
+    PushBytesReceiver(1, (bytes) => {
         version = bytes[0];
         return true;
     }, "VersionReceiver");
@@ -164,7 +171,7 @@ async function Report(
     ry = SwitchStick.STICK_CENTER) {
     let ack = false;
     let error_code = -999;
-    PushBytesReceive(1, (bytes) => {
+    PushBytesReceiver(1, (bytes) => {
         if (Reply.Ack == bytes[0]) {
             ack = true;
             return true;
@@ -179,10 +186,74 @@ async function Report(
             return ack;
         }
     }
-    //console.log("[Report] error_code: " + error_code);
+    //easylog("[Report] error_code: " + error_code);
+    return ack;
+}
+// SaveAmiibo index: 0~9  amiibo: intlist
+async function SaveAmiibo(index, amiibo) {
+    let packetSize = 20;
+    for (let i = 0; i < amiibo.length; i += packetSize) {
+        let len = Math.min(packetSize, amiibo.length - i);
+        let packet = amiibo.slice(i, i + len);
+        while (true) {
+            let ack = false;
+            // 保存Amiibo, 成功需要获取两个Ack
+            PushBytesReceiver(2, (bytes) => {
+                if (Reply.Ack == bytes[0] && Reply.Ack == bytes[1]) {
+                    ack = true;
+                    return true;
+                }
+                return false;
+            }, "SaveAmiiboReceiver");
+            usbserial.SerialWriteListAsync(serial,
+                [
+                    Command.Ready, Command.Ready,
+                    (i & 0x7F) & 0xFF, (i >> 7) & 0xFF, (len & 0x7F) & 0xFF, (len >> 7) & 0xFF,
+                    index, Command.SaveAmiibo,
+                ]);
+            usbserial.SerialWriteListAsync(serial, packet);
+            for (let j = 0; j < 200; j++) {
+                await new Promise(r => setTimeout(r, 5));
+                if (ack) {
+                    break;
+                }
+            }
+            if (ack) {
+                easylog("[SaveAmiibo] packet:" + [i, i + len] + " is saved");
+                break;
+            }
+            usbserial.SerialWriteListAsync(serial, [Command.Ready, Command.Ready]);
+        }
+    }
+    return true;
+}
+async function ChangeAmiiboIndex(index) {
+    let ack = false;
+    PushBytesReceiver(1, (bytes) => {
+        if (Reply.Ack == bytes[0]) {
+            ack = true;
+            return true;
+        }
+        return false;
+    }, "ChangeAmiiboReceiver");
+    usbserial.SerialWriteListAsync(serial, [Command.Ready, index, Command.ChangeAmiiboIndex]);
+    for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 20));
+        if (ack) {
+            break;
+        }
+    }
     return ack;
 }
 
+async function ReadIntListFromAmiiboBin(path) {
+    let buf = fs.readFileSync(path);
+    let ret = [];
+    for (let x of buf) {
+        ret.push(x);
+    }
+    return ret;
+}
 module.exports = {
     SwitchStick: SwitchStick,
     SwitchButton: SwitchButton,
@@ -198,25 +269,32 @@ module.exports = {
     // note. 传输出错时,返回数据可能会错位,错位会影响前后两个命令
     Report: Report,
     Version: Version,
-    HelloCheck: HelloCheck,
+    Hello: Hello,
+    ReadIntListFromAmiiboBin: ReadIntListFromAmiiboBin,
+    SaveAmiibo: SaveAmiibo,
+    SaveAmiiboFromBin: async function (index, path) {
+        let bin = await ReadIntListFromAmiiboBin(path);
+        return SaveAmiibo(index, bin);
+    },
+    ChangeAmiiboIndex: ChangeAmiiboIndex,
     // 串口操作
-    PushBytesReceive: PushBytesReceive,
+    PushBytesReceiver: PushBytesReceiver,
     // 托管串口
     SetEasyConSerial: function (ser) {
         serial = ser;
-        // reset BytesReceiveQueue
-        BytesReceiveQueue.length = 0;
+        // reset BytesReceiverQueue
+        BytesReceiverQueue.length = 0;
         // serial read callback
         let receiver = null;
         let bytes = [];
         usbserial.SerialReadListAsync(serial, (intList) => {
             for (let i = 0; i < intList.length; i++) {
                 let hex = Buffer([intList[i]]);
-                if (!receiver && BytesReceiveQueue.length > 0) {
-                    receiver = BytesReceiveQueue.shift();
-                    console.log("[SerialReadListAsync] " + receiver.desc + " " + receiver.byte_size);
+                if (!receiver && BytesReceiverQueue.length > 0) {
+                    receiver = BytesReceiverQueue.shift();
+                    easylog("[SerialReadListAsync] " + receiver.desc + " " + receiver.byte_size);
                 } else if (!receiver) {
-                    console.log("[SerialReadListAsync] received: 0x" + hex.toString('hex') + " " + ReplyToStr[parseInt(hex.toString('hex'), 16)]);
+                    easylog("[SerialReadListAsync] received: 0x" + hex.toString('hex') + " " + ReplyToStr[parseInt(hex.toString('hex'), 16)]);
                     continue;
                 }
                 // 有已注册的回调, 则按预期字节数返回
@@ -227,8 +305,8 @@ module.exports = {
                     // 回调返回错误, 可能是乱序了;
                     // 乱序时read buffer和 receive queue已经不匹配, 应当全部清空, 避免一直错下去
                     if (!ret) {
-                        console.log("[SerialReadListAsync] ClearAll: " + BytesReceiveQueue + " " + intList);
-                        BytesReceiveQueue.length = 0;
+                        easylog("[SerialReadListAsync] ClearAll: " + BytesReceiverQueue + " " + intList);
+                        BytesReceiverQueue.length = 0;
                         bytes.length = 0;
                         receiver = null;
                         break;
