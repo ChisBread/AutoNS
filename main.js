@@ -6,6 +6,52 @@ const { select } = require('accessibility');
 const usbserial = require('./usbserial');
 const EasyCon = require('./EasyCon');
 let serial = null;
+async function StickTest() {
+    await usbserial.SerialWriteListAsync(serial, [EasyCon.Command.Ready, EasyCon.Command.Ready, EasyCon.Command.Ready]);
+    await EasyCon.Report();
+    for (let i = 0; i < 100; i++) {
+        await EasyCon.Report(ly = EasyCon.SwitchStick.STICK_MAX);
+        await EasyCon.Report();
+    }
+}
+// ButtonTest .
+async function ButtonTest() {
+    await usbserial.SerialWriteListAsync(serial, [EasyCon.Command.Ready, EasyCon.Command.Ready, EasyCon.Command.Ready]);
+    await EasyCon.Report(EasyCon.SwitchButton.A);
+    await EasyCon.Report();
+    await new Promise(r => setTimeout(r, 600));
+    // Dual button test
+    await EasyCon.Report(EasyCon.SwitchButton.A);
+    await EasyCon.Report();
+    await new Promise(r => setTimeout(r, 100));
+    await EasyCon.Report(EasyCon.SwitchButton.A);
+    await new Promise(r => setTimeout(r, 100));
+
+    await EasyCon.Report(EasyCon.SwitchButton.B);
+    await new Promise(r => setTimeout(r, 100));
+    await EasyCon.Report(EasyCon.SwitchButton.X);
+    await new Promise(r => setTimeout(r, 100));
+    await EasyCon.Report(EasyCon.SwitchButton.Y);
+    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 100));
+    await EasyCon.Report(EasyCon.SwitchButton.L);
+    await new Promise(r => setTimeout(r, 100));
+    await EasyCon.Report(EasyCon.SwitchButton.R);
+    await new Promise(r => setTimeout(r, 100));
+    await EasyCon.Report(EasyCon.SwitchButton.ZL);
+    await new Promise(r => setTimeout(r, 100));
+    await EasyCon.Report(EasyCon.SwitchButton.ZR);
+    await new Promise(r => setTimeout(r, 100));
+    await EasyCon.Report(EasyCon.SwitchButton.MINUS);
+    await new Promise(r => setTimeout(r, 100));
+    await EasyCon.Report(EasyCon.SwitchButton.PLUS);
+    await new Promise(r => setTimeout(r, 100));
+    await EasyCon.Report(EasyCon.SwitchButton.LCLICK);
+    await new Promise(r => setTimeout(r, 100));
+    await EasyCon.Report(EasyCon.SwitchButton.RCLICK);
+    await new Promise(r => setTimeout(r, 100));
+}
+// AmiiboTest .
 async function AmiiboTest() {
     let ret = await EasyCon.SaveAmiiboFromBin(0, "./amiibo/Breath of the Wild/[ZBW] 04 - Link (Rider).bin")
     console.log(ret);
@@ -42,7 +88,7 @@ async function Main() {
     if (await Init()) {
         showToast('Welcome to AutoNS!');
     }
-    await AmiiboTest();
+    await ButtonTest();
     await new Promise(r => setTimeout(r, 1000));
     serial.close();
     showToast('Byebye!');
